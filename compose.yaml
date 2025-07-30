@@ -1,0 +1,55 @@
+
+services:
+  mlflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5555:5432"
+    networks:
+      - mlflow-network
+
+  mlflow-server:
+    container_name: mlflow-server
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+        WORKDIR /app
+    image: my-mlflow-server:latest
+    depends_on:
+      - mlflow-db
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./mlflow-artifacts:/mlflow/artifacts
+      - ./startup.sh:/startup.sh
+    working_dir: /app
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:mlflow@mlflow-db:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=${MLFLOW_DEFAULT_ARTIFACT_ROOT:-/mlflow/artifacts}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-ap-northeast-1}
+      - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT_URL:-}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+      - UV_NO_CACHE=1
+    command: bash -c "uv sync && bash /startup.sh"
+    networks:
+      - mlflow-network
+
+volumes:
+  postgres_data:
+  uv_cache:
+
+networks:
+  mlflow-network:
+    driver: bridge
