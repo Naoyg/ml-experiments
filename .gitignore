@@ -165,3 +165,5 @@ wandb/
 mlruns/
 .neptune/
 tensorboard_logs/
+
+db_server/

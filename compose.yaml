@@ -1,55 +1,47 @@
-
 services:
-  mlflow-db:
-    image: postgres:16
+  db-server:
+    image: mysql:5.7
+    container_name: ${DB_HOST}
+    platform: 'linux/amd64'
+    restart: always
     environment:
-      POSTGRES_DB: mlflow
-      POSTGRES_USER: mlflow
-      POSTGRES_PASSWORD: mlflow
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: "Asia/Tokyo"
     ports:
-      - "5555:5432"
-    networks:
-      - mlflow-network
+      - 3306:3306
+    volumes:
+      - $PWD/db_server:/var/lib/mysql
 
-  mlflow-server:
-    container_name: mlflow-server
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: always
+    depends_on:
+      - db-server
+    ports:
+      - "8080:8080"
+
+  tracking-server:
+    container_name: mlflow-tracking
     build:
       context: .
-      dockerfile_inline: |
-        FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
-        WORKDIR /app
-    image: my-mlflow-server:latest
-    depends_on:
-      - mlflow-db
+      dockerfile: Dockerfile
+      args:
+        - MYSQL_USER=${MYSQL_USER}
+        - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+        - DB_HOST=${DB_HOST}
+        - DB_NAME=${DB_NAME}
+        - DEFAULT_ARTIFACT_ROOT=${DEFAULT_ARTIFACT_ROOT}
+    image: mlflow-tracking:1.0
+    restart: always
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
     ports:
       - "5000:5000"
-    volumes:
-      - ./pyproject.toml:/app/pyproject.toml
-      - ./uv.lock:/app/uv.lock
-      - ./mlflow-artifacts:/mlflow/artifacts
-      - ./startup.sh:/startup.sh
-    working_dir: /app
-    environment:
-      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:mlflow@mlflow-db:5432/mlflow
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=${MLFLOW_DEFAULT_ARTIFACT_ROOT:-/mlflow/artifacts}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-ap-northeast-1}
-      - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT_URL:-}
-      - HTTP_PROXY=${HTTP_PROXY:-}
-      - HTTPS_PROXY=${HTTPS_PROXY:-}
-      - NO_PROXY=${NO_PROXY:-}
-      - UV_NO_CACHE=1
-    command: bash -c "uv sync && bash /startup.sh"
-    networks:
-      - mlflow-network
-
-volumes:
-  postgres_data:
-  uv_cache:
-
-networks:
-  mlflow-network:
-    driver: bridge
+    depends_on:
+      - db-server
