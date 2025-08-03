@@ -6,7 +6,7 @@ MLflowのtracking serverを実行する。
 
 ```bash
 # 環境変数ファイルをコピー
-cp .env.s3 .env
+cp .env.example .env
 
 # .envに必要な値を記入
 
