@@ -1,6 +1,6 @@
 services:
   db-server:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: ${DB_HOST}
     platform: 'linux/amd64'
     restart: always
@@ -10,6 +10,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: "Asia/Tokyo"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
       - 3306:3306
     volumes:
